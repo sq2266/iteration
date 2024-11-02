@@ -224,8 +224,32 @@ lm(tmax ~ tmin, data = weather_nest[["data"]][[2]])
 lm(tmax ~ tmin, data = weather_nest[["data"]][[3]])
 ```
 
+
+define the regression I want.
+```{r}
+weather_lm = function(df) {
+  lm(tmax~tmin, data = df)
+}
+```
+
+using the short function
+```{r}
+weather_lm(weather_nest[["data"]][[1]])
+```
+
+```{r,, error=TRUE}
+weather_nest |>
+  map(weather_nest[["data"]],weather_lm)
+```
+
 ```{r, error=TRUE}
 weather_nest |>
-  mutate(model_fit = map(data, \(x) lm(tmax ~ tmin, data = )))
+  mutate(model_fit = map(data, weather_lm))
+```
+
+
+```{r}
+weather_nest |>
+  mutate(model_fit = map(data, \(x) lm(tmax ~ tmin, data = x)))
 ```
 
