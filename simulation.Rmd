@@ -1,0 +1,252 @@
+---
+title: "simulation"
+output: github_document
+date: "2024-11-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+set.seed(1031)
+```
+
+## writing my first function
+
+z-score computation
+```{r}
+x_vec = rnorm(n = 25, mean = 10, sd = 3.5)
+
+(x_vec - mean(x_vec)) / sd(x_vec)
+```
+
+```{r}
+z_score = function(x) {
+  if (!is.numeric(x)){
+    stop("x needs to be number")
+  }
+  if (length(x) < 5){
+    stop("you need at least five numbers to compute the z score")
+  }
+   
+    
+  z = (x - mean(x)) / sd(x)
+  
+  return(z)
+}
+z_score(x = x_vec)
+```
+
+```{r, error=TRUE}
+z_score(x = 3)
+z_score(x = c("my","name"))
+```
+
+## mean/sd function
+
+```{r}
+mean_and_sd = function(x) {
+  
+  mean_x = mean(x)
+  sd_x = sd(x)
+  
+  out_df = 
+    tibble(
+      mean = mean_x,
+      sd = sd_x
+    )
+  return(out_df)
+  
+}
+
+mean_and_sd(x_vec)
+```
+
+## using a simulation
+```{r}
+sim_df = 
+  tibble(
+    x = rnorm(30, 10, 5)
+  )
+
+sim_df |>
+  summarise(
+    mean = mean(x),
+    sd = sd(x)
+  )
+```
+
+## writing a simulatoin function
+```{r, error=TRUE}
+sim_mean_sd = function(samp_size, true_mean, true_sd) {
+    
+  sim_df = 
+  tibble(
+    x = rnorm(samp_size, true_mean, true_sd)
+  )
+
+   out_df = 
+     sim_df |>
+     summarise(
+     mean = mean(x),
+     sd = sd(x)
+  )
+  
+return(out_df)
+
+}
+
+sim_mean_sd(samp_size = 30,true_mean = 4, true_sd = 12)
+sim_mean_sd(samp_size = 4,true_mean = 12, true_sd = 30)
+
+sim_mean_sd(30, 16, 2)
+```
+
+run this a lot of time
+```{r, error=TRUE}
+sim_mean_sd(30)
+```
+
+```{r, error=TRUE}
+output = vector("list",1000)
+
+for (i in 1:10000) {
+  output[[1]] = sim_mean_sd(30)
+}
+
+output
+```
+
+```{r, error=TRUE}
+bind_rows(output) |>
+  summarize(ave_mean(mean),
+            sd_mean = mean(sd))
+
+set.seed(1)
+
+rnorm(5)
+```
+
+```{r, error=TRUE}
+sim_res = 
+  tibble(
+    iter = 1:1000)|>
+  mutate(samp_res = map(iter, sim_mean_sd, samp_size = 30))|>
+  unnest(samp_res)
+```
+
+
+try different smaple size
+```{r, error=TRUE}
+sim_res = 
+  expand_grid(
+    n = c(10, 30, 60, 100),
+    iter = 1:1000
+  )|>
+  mutate(samp_res = map(n, sim_mean_sd))
+  
+```
+
+```{r, error=TRUE}
+sim_res |>
+  group_by(n)|>
+  summarize(
+    se = sd(samp_mean)
+  )
+```
+
+```{r, error=TRUE}
+sim_res |>
+  filter(n == 10) |>
+  ggplot(aes(y = samp_mean))+
+  geom_histogram()
+
+```
+
+
+### SLR
+```{r}
+sim_data = 
+  tibble(
+    x = rnorm(30, mean = 1, sd = 1),
+    y = 2 + 3 *x + rnorm(30, 0, 1)
+  )
+lm_fit = lm(y ~ x, data = sim_data)
+
+sim_data |>
+  ggplot(aes(x = x, y = y))+
+  geom_point() +
+  stat_smooth(method = "lm")
+```
+
+##turn it into the function
+```{r,error=TRUE}
+sim_regression = function(n){
+  sim_data = 
+  tibble(
+    x = rnorm(30, mean = 1, sd = 1),
+    y = 2 + 3 *x + rnorm(n, 0, 1)
+  )
+lm_fit = lm(y ~ x, data = sim_data)
+
+out_df = 
+  tibble(
+    beta0_hat = coef(lm_fit)[1],
+    beta1_hat = coef(lm_fit)[2]
+  )
+
+return(out_df)
+
+}
+
+
+sim_res = 
+  expand_grid(
+    sample_size = 30, 
+    iter = 1:1000
+  )|>
+  mutate(lm_res = map(sample_size, sim_regression)) |>
+  unnest(lm_res)
+
+
+sim_res |>
+  ggplot(aes(x = beta0_hat))+
+  geom_histogram()
+
+sim_res |>
+  filter(sample_size == 30)|>
+  ggplot(aes(x = beta0_hat, y = beta1_hat))+
+  geom_point()
+```
+
+
+## Birthday problem
+```{r}
+bdays_sim = function(n){
+
+bdays = sample(1:365, size = n, replace = TRUE)
+
+duplicate = length(unique(bdays)) < n  #check repeated birthdays
+return(duplicate)
+}
+
+bdays_sim(10)
+```
+
+```{r, error=TRUE}
+sim_res =
+  expand_grid(
+    n = c(10, 50),
+    iter = 1:10
+  )|>
+  mutate(res = map(n, bdays_sim))|>
+  group_by(n)|>
+  summarize(prob = mean(res))
+
+sim_res|>
+  ggplot(aes(x = n, y = prob))+
+  geom_line()
+```
+
